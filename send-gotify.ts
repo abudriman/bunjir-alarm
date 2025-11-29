@@ -1,15 +1,15 @@
 const GOTIFY_URL = 'http://localhost:8060';
 const GOTIFY_APP_TOKEN = 'APYMjnEFwaoKHHD';
 
-async function sendGotify() {
+async function sendGotify(p?: { title: string, message: string }) {
     console.log('Attempting to send alarm notification to Gotify...');
 
     const endpoint = `${GOTIFY_URL}/message?token=${GOTIFY_APP_TOKEN}`;
 
     // Define the message payload
     const payload = {
-        title: '🔴 Critical System Alert!',
-        message: `A repetitive alarm was triggered at ${new Date().toLocaleTimeString()}`,
+        title: p?.title || '🔴 Critical System Alert!',
+        message: p?.message || `A repetitive alarm was triggered at ${new Date().toLocaleTimeString()}`,
         priority: 5, // Priority 5 is typically high/critical
         extras: {
             // Optional: Specify content type as markdown if you want rich text

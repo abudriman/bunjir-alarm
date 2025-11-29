@@ -128,6 +128,12 @@ app.get('/stop', (c) => {
     return c.text('ok')
 })
 
+
+sendGotify({
+    title: 'Bunjir Alarm Started',
+    message: `at ${new Date().toLocaleTimeString()}`
+})
+
 export default {
     port: 6001,
     fetch: app.fetch
