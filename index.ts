@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import { Hono } from 'hono'
 import { log } from './log';
-import { playAudio } from './play-audio';
+import sendGotify from './send-gotify';
 export interface PintuAirData {
     id_pintu_air: string
     kode_stasiun: string
@@ -28,7 +28,6 @@ export interface PintuAirData {
 }
 
 const CHECK_INTERVAL = 90_000
-const ALARM_INTERVAL = 15_000
 
 //ANGKE 32
 //Pesanggrahan 02
@@ -112,16 +111,14 @@ function decide(data: PintuAirData[]): boolean {
 }
 
 function alarm() {
-    soundAlarm()
     const id = setInterval(() => {
         soundAlarm()
-    }, ALARM_INTERVAL)
+    }, 3000)
     mem['interval'] = id
 }
 
 function soundAlarm() {
-    log('bahaya, alarm berbunyi!')
-    playAudio("nuclear_alarm.mp3");
+    sendGotify()
 }
 
 app.get('/stop', (c) => {
