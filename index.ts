@@ -32,8 +32,9 @@ const ALARM_INTERVAL = 15_000
 
 //ANGKE 32
 //Pesanggrahan 02
-//Bendung Katulampa (Hulu)
-const INDICATOR_CODE_STATION = ['32', '02', '27']
+//Bendung Katulampa (Hulu) 27
+//Bendung Katulampa 2 05
+const INDICATOR_CODE_STATION = ['32', '02', '05']
 
 const mem: Record<string, any> = {}
 
@@ -94,11 +95,14 @@ async function fetchData(): Promise<PintuAirData[]> {
 
 function decide(data: PintuAirData[]): boolean {
     let count = 0
+    let logs = []
     for (const pintu of data) {
+        logs.push(`${pintu.nama_pintu_air}:${pintu.tinggi_air} > ${pintu.siaga2}`)
         if (Number(pintu.tinggi_air) > Number(pintu.siaga2)) {
             count++
         }
     }
+    console.log(logs.join(" "))
     //lebih dari 2 stasiun indikator, status siaga 2
     if (count > 2) {
         return true
