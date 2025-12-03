@@ -31,9 +31,10 @@ const CHECK_INTERVAL = 90_000
 
 //ANGKE 32
 //Pesanggrahan 02
+//P.S. Pesanggrahan (Baru) 34
 //Bendung Katulampa (Hulu) 27
 //Bendung Katulampa 2 05
-const INDICATOR_CODE_STATION = ['32', '02', '05']
+const INDICATOR_CODE_STATION = ['32', '34', '05']
 
 const mem: Record<string, any> = {}
 
