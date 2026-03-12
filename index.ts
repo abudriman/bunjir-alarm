@@ -16,7 +16,6 @@ import fs from 'fs';
 import { renderer, Dashboard } from './dashboard';
 import { serveStatic } from 'hono/bun';
 import { streamSSE } from 'hono/streaming';
-import { serve } from 'hono/bun';
 import { db } from './db';
 import { contacts as contactsTable } from './schema';
 import { eq } from 'drizzle-orm';
@@ -36,10 +35,10 @@ export interface PintuAirData {
     longitude: string;
     file_export: string;
     record_status: string;
-    created_date: string;
-    created_by: string;
-    last_updated_date: string;
-    last_updated_by: string;
+    created_date?: string;
+    created_by?: string;
+    last_updated_date?: string;
+    last_updated_by?: string;
     tanggal: string;
     tinggi_air: string;
     tinggi_air_sebelumnya: string;
@@ -166,6 +165,47 @@ async function saveContact(jid: string, name: string) {
         .run();
 }
 
+// --- Helper Functions ---
+function getStatusNumber(tinggiAir: number, s1: number, s2: number, s3: number): number {
+    if (tinggiAir >= s1) return 1;
+    if (tinggiAir >= s2) return 2;
+    if (tinggiAir >= s3) return 3;
+    return 4;
+}
+
+async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
+    if (!text.startsWith('/')) return;
+
+    const command = text.split(' ')[0]!.toLowerCase();
+    // const args = text.split(' ').slice(1);
+
+    switch (command) {
+        case '/help':
+            const helpMsg = `🤖 *Available Commands:*\n\n` +
+                `*/help* - Show this help message\n` +
+                `*/status* - Check current water level status\n` +
+                `*/list* - List target JIDs\n` +
+                `*/ping* - Check bot status`;
+            await sock.sendMessage(remoteJid, { text: helpMsg });
+            break;
+        case '/status':
+             const summary = mem.data.map((p: any) => {
+                 const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3));
+                 const emoji = status === 1 ? '🔴' : status === 2 ? '🟠' : status === 3 ? '🟡' : '🟢';
+                 return `${emoji} *${p.nama_pintu_air}*: ${p.tinggi_air}cm (Siaga ${status})`;
+             }).join('\n');
+             await sock.sendMessage(remoteJid, { text: `🤖 *Current Status:*\n\n${summary || 'No data available'}` });
+             break;
+        case '/list':
+            const targets = config.targetJids.map(jid => `- ${mem.contacts[jid] || jid}`).join('\n');
+            await sock.sendMessage(remoteJid, { text: `🤖 *Target JIDs:*\n\n${targets || 'No targets configured'}` });
+            break;
+        case '/ping':
+            await sock.sendMessage(remoteJid, { text: '🤖 pong' });
+            break;
+    }
+}
+
 // --- WhatsApp Logic ---
 async function connectToWhatsApp() {
     if (mem.isConnecting) {
@@ -231,15 +271,17 @@ async function connectToWhatsApp() {
                 }
 
                 // FORCE SYNC GROUPS
-                try {
-                    const groups = await sock.groupFetchAllParticipating();
-                    for (const jid in groups) {
-                        const group = groups[jid];
-                        if (group) saveContact(jid, group.subject || jid.split('@')[0]);
+                if (sock) {
+                    try {
+                        const groups = await sock.groupFetchAllParticipating();
+                        for (const jid in groups) {
+                            const group = groups[jid];
+                            if (group) saveContact(jid, (group.subject || jid.split('@')[0]) as string);
+                        }
+                        log(`Deep sync: ${Object.keys(groups).length} groups fetched.`);
+                    } catch (e) {
+                        log('Error in deep sync: ' + e);
                     }
-                    log(`Deep sync: ${Object.keys(groups).length} groups fetched.`);
-                } catch (e) {
-                    log('Error in deep sync: ' + e);
                 }
 
                 broadcastContactsUpdate();
@@ -250,8 +292,10 @@ async function connectToWhatsApp() {
 
         sock.ev.on('contacts.upsert', (contacts) => {
             for (const contact of contacts) {
-                const name = contact.name || contact.notify || contact.verifiedName || contact.id.split('@')[0];
-                saveContact(contact.id, name);
+                if (contact.id) {
+                    const name = (contact.name || contact.notify || contact.verifiedName || contact.id.split('@')[0]) as string;
+                    saveContact(contact.id, name);
+                }
             }
             broadcastContactsUpdate();
         });
@@ -261,7 +305,7 @@ async function connectToWhatsApp() {
             for (const update of updates) {
                 const name = update.name || update.notify || update.verifiedName;
                 if (name && update.id) {
-                    saveContact(update.id, name);
+                    saveContact(update.id, name as string);
                     changed = true;
                 }
             }
@@ -270,26 +314,41 @@ async function connectToWhatsApp() {
 
         sock.ev.on('groups.upsert', (groups) => {
             for (const group of groups) {
-                saveContact(group.id, group.subject || group.id.split('@')[0]);
+                if (group.id) {
+                    saveContact(group.id, (group.subject || group.id.split('@')[0]) as string);
+                }
             }
             broadcastContactsUpdate();
         });
 
         sock.ev.on('groups.update', (updates) => {
             for (const update of updates) {
-                if (update.subject && update.id) {
-                    saveContact(update.id, update.subject);
+                if (update.id) {
+                    saveContact(update.id, (update.subject || update.id.split('@')[0]) as string);
                 }
             }
             broadcastContactsUpdate();
         });
 
-        sock.ev.on('messages.upsert', ({ messages }) => {
+        sock.ev.on('messages.upsert', async ({ messages, type }) => {
+            if (type !== 'notify') return;
+
             let changed = false;
             for (const msg of messages) {
+                // Save contact info if pushName is available
                 if (msg.key.remoteJid && msg.pushName) {
                     saveContact(msg.key.remoteJid, msg.pushName);
                     changed = true;
+                }
+
+                // Command listener: Only respond if the message is in the "Me (Self)" chat
+                const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
+                if (text && text.startsWith('/') && sock && mem.selfId) {
+                    const isSelfChat = msg.key.remoteJid === mem.selfId;
+                    if (isSelfChat) {
+                        // This ensures the bot only responds to commands sent in your own private chat
+                        await handleCommand(sock, mem.selfId, text);
+                    }
                 }
             }
             if (changed) broadcastContactsUpdate();
@@ -298,8 +357,10 @@ async function connectToWhatsApp() {
         sock.ev.on('messaging-history.set', ({ contacts }) => {
             if (contacts) {
                 for (const contact of contacts) {
-                    const name = contact.name || contact.notify || contact.verifiedName || contact.id.split('@')[0];
-                    saveContact(contact.id, name);
+                    if (contact.id) {
+                        const name = (contact.name || contact.notify || contact.verifiedName || contact.id.split('@')[0]) as string;
+                        saveContact(contact.id, name);
+                    }
                 }
                 broadcastContactsUpdate();
             }
@@ -312,13 +373,6 @@ async function connectToWhatsApp() {
 }
 
 // --- Helper Functions ---
-function getStatusNumber(tinggiAir: number, s1: number, s2: number, s3: number): number {
-    if (tinggiAir >= s1) return 1;
-    if (tinggiAir >= s2) return 2;
-    if (tinggiAir >= s3) return 3;
-    return 4;
-}
-
 async function fetchData(): Promise<PintuAirData[]> {
     try {
         const raw = await fetch("https://poskobanjir.dsdadki.web.id/xmldata.xml");
