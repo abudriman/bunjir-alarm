@@ -343,11 +343,18 @@ async function connectToWhatsApp() {
 
                 // Command listener: Only respond if the message is in the "Me (Self)" chat
                 const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
-                if (text && text.startsWith('/') && sock && mem.selfId) {
-                    const isSelfChat = msg.key.remoteJid === mem.selfId;
-                    if (isSelfChat) {
-                        // This ensures the bot only responds to commands sent in your own private chat
-                        await handleCommand(sock, mem.selfId, text);
+                
+                if (text && text.startsWith('/')) {
+                    log(`Incoming command: "${text}" from ${msg.key.remoteJid} (SelfId: ${mem.selfId})`);
+                    
+                    if (sock && mem.selfId) {
+                        const isSelfChat = msg.key.remoteJid === mem.selfId;
+                        if (isSelfChat) {
+                            log(`Executing command: ${text}`);
+                            await handleCommand(sock, mem.selfId, text);
+                        } else {
+                            log(`Command ignored: Not in self chat (JID: ${msg.key.remoteJid})`);
+                        }
                     }
                 }
             }
