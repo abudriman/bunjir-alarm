@@ -67,6 +67,7 @@ const mem: Record<string, any> = {
     contacts: {} as Record<string, string>,
     sseControllers: new Set<any>(),
     selfId: null,
+    selfLid: null,
     isConnecting: false
 };
 
@@ -264,10 +265,14 @@ async function connectToWhatsApp() {
                 mem.qr = null;
                 broadcastWAUpdate();
 
-                // Capture self JID
-                if (sock?.user?.id) {
+                // Capture self JID and LID
+                if (sock?.user) {
                     mem.selfId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                    // @ts-ignore
+                    mem.selfLid = sock.user.lid || null;
                     saveContact(mem.selfId, 'Me (Self)');
+                    if (mem.selfLid) saveContact(mem.selfLid, 'Me (Self - LID)');
+                    log(`Self Identifiers - JID: ${mem.selfId}, LID: ${mem.selfLid}`);
                 }
 
                 // FORCE SYNC GROUPS
@@ -345,15 +350,16 @@ async function connectToWhatsApp() {
                 const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
                 
                 if (text && text.startsWith('/')) {
-                    log(`Incoming command: "${text}" from ${msg.key.remoteJid} (SelfId: ${mem.selfId})`);
+                    const remoteJid = msg.key.remoteJid;
+                    log(`Incoming command: "${text}" from ${remoteJid} (SelfId: ${mem.selfId}, SelfLid: ${mem.selfLid})`);
                     
-                    if (sock && mem.selfId) {
-                        const isSelfChat = msg.key.remoteJid === mem.selfId;
-                        if (isSelfChat) {
+                    if (sock && (mem.selfId || mem.selfLid)) {
+                        const isSelfChat = remoteJid === mem.selfId || remoteJid === mem.selfLid;
+                        if (isSelfChat && remoteJid) {
                             log(`Executing command: ${text}`);
-                            await handleCommand(sock, mem.selfId, text);
+                            await handleCommand(sock, remoteJid, text);
                         } else {
-                            log(`Command ignored: Not in self chat (JID: ${msg.key.remoteJid})`);
+                            log(`Command ignored: Not in self chat (JID: ${remoteJid})`);
                         }
                     }
                 }
