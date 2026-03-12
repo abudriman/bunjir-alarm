@@ -641,14 +641,15 @@ function arrayToCsv(data: PintuAirData[]): string {
 
     // 2. Generate the Header Row (Column Names)
     // Use Object.keys() from the first object to get all column names.
-    const headers = Object.keys(data[0]);
+    const headers = Object.keys(data[0] || {});
+    if (headers.length === 0) return "";
     const headerRow = headers.join(',') + '\n';
 
     // 3. Generate the Data Rows
     const dataRows = data.map(obj => {
         // Map each header key to its corresponding value in the object.
         const values = headers.map(key => {
-            let value = String(obj[key as keyof PintuAirData]);
+            let value = String((obj as any)[key]);
 
             // Basic CSV sanitization: enclose values containing commas, newlines, or double-quotes in double-quotes.
             if (value.includes(',') || value.includes('\n') || value.includes('"')) {
