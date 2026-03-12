@@ -6,6 +6,7 @@ import makeWASocket, {
     useMultiFileAuthState, 
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore,
+    jidNormalizedUser,
     type WASocket
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
@@ -186,6 +187,7 @@ async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
                 `*/help* - Show this help message\n` +
                 `*/status* - Check current water level status\n` +
                 `*/list* - List target JIDs\n` +
+                `*/notify* - Send manual notification to all targets\n` +
                 `*/ping* - Check bot status`;
             await sock.sendMessage(remoteJid, { text: helpMsg });
             break;
@@ -200,6 +202,31 @@ async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
         case '/list':
             const targets = config.targetJids.map(jid => `- ${mem.contacts[jid] || jid}`).join('\n');
             await sock.sendMessage(remoteJid, { text: `🤖 *Target JIDs:*\n\n${targets || 'No targets configured'}` });
+            break;
+        case '/notify':
+            if (config.targetJids.length === 0) {
+                await sock.sendMessage(remoteJid, { text: '🤖 No target JIDs configured.' });
+                break;
+            }
+            
+            const currentSummary = mem.data.map((p: any) => {
+                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3));
+                const emoji = status === 1 ? '🔴' : status === 2 ? '🟠' : status === 3 ? '🟡' : '🟢';
+                return `${emoji} *${p.nama_pintu_air}*: ${p.tinggi_air}cm (Siaga ${status})`;
+            }).join('\n');
+
+            const notifyMsg = `🔔 *Bunjir Alarm: Current Status Update*\n\n${currentSummary || 'No data available'}\n\n_Triggered manually via command._`;
+            
+            let successCount = 0;
+            for (const targetJid of config.targetJids) {
+                try {
+                    await sock.sendMessage(targetJid, { text: notifyMsg });
+                    successCount++;
+                } catch (e) {
+                    log(`Failed to send notify message to ${targetJid}: ${e}`);
+                }
+            }
+            await sock.sendMessage(remoteJid, { text: `🤖 Current status notification sent to ${successCount}/${config.targetJids.length} targets.` });
             break;
         case '/ping':
             await sock.sendMessage(remoteJid, { text: '🤖 pong' });
@@ -351,15 +378,22 @@ async function connectToWhatsApp() {
                 
                 if (text && text.startsWith('/')) {
                     const remoteJid = msg.key.remoteJid;
-                    log(`Incoming command: "${text}" from ${remoteJid} (SelfId: ${mem.selfId}, SelfLid: ${mem.selfLid})`);
+                    if (!remoteJid) continue;
+
+                    const normalizedRemote = jidNormalizedUser(remoteJid);
+                    const normalizedSelfId = mem.selfId ? jidNormalizedUser(mem.selfId) : null;
+                    const normalizedSelfLid = mem.selfLid ? jidNormalizedUser(mem.selfLid) : null;
+
+                    log(`Incoming command: "${text}" from ${remoteJid} (Normalized: ${normalizedRemote})`);
+                    log(`Self Identifiers - Normalized JID: ${normalizedSelfId}, Normalized LID: ${normalizedSelfLid}`);
                     
-                    if (sock && (mem.selfId || mem.selfLid)) {
-                        const isSelfChat = remoteJid === mem.selfId || remoteJid === mem.selfLid;
-                        if (isSelfChat && remoteJid) {
+                    if (sock && (normalizedSelfId || normalizedSelfLid)) {
+                        const isSelfChat = normalizedRemote === normalizedSelfId || normalizedRemote === normalizedSelfLid;
+                        if (isSelfChat) {
                             log(`Executing command: ${text}`);
                             await handleCommand(sock, remoteJid, text);
                         } else {
-                            log(`Command ignored: Not in self chat (JID: ${remoteJid})`);
+                            log(`Command ignored: Not in self chat (Normalized JID: ${normalizedRemote})`);
                         }
                     }
                 }
