@@ -466,7 +466,7 @@ async function checkStatusChanges(data: PintuAirData[]) {
         const prevStatus = mem.lastStatus[pintu.kode_stasiun];
 
         if (prevStatus !== undefined && prevStatus !== status) {
-            const msg = `🚨 *Status Change Alert*\n\nStation: *${pintu.nama_pintu_air}*\nPrevious: Siaga ${prevStatus}\nCurrent: *Siaga ${status}*\nTMA: ${Number(currentTma) / 10} cm\n\nThresholds:\nS1: ${s1}, S2: ${s2}, S3: ${s3}`;
+            const msg = `🚨 *Status Change Alert*\n\nStation: *${pintu.nama_pintu_air}*\nPrevious: Siaga ${prevStatus}\nCurrent: *Siaga ${status}*\nTMA: ${Number(currentTma) / 10} cm\n\nThresholds:\nS1: ${s1 / 10}cm, S2: ${s2 / 10}cm, S3: ${s3 / 10}cm`;
             log(msg);
 
             if (sock && mem.waStatus === 'open' && config.targetJids.length > 0) {
