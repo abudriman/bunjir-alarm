@@ -104,7 +104,8 @@ export const renderer = jsxRenderer(({ children }) => {
                         gap: 0.25rem;
                     }
                 `}</style>
-                <script dangerouslySetInnerHTML={{ __html: `
+                <script dangerouslySetInnerHTML={{
+                    __html: `
                     let serverContacts = {};
                     let serverSelfId = null;
                     let lastServerTargetJids = [];
@@ -257,7 +258,7 @@ export const renderer = jsxRenderer(({ children }) => {
                             qrContainer.innerHTML = '';
                             document.getElementById('btn-test-send').disabled = false;
                             actionsHtml = '<button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="waAction(\\'disconnect\\')">Disconnect</button>';
-                            actionsHtml += '<button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="rescan(this)">Rescan</button>';
+                             actionsHtml += '<button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="waAction(\\'rescan\\')">Rescan</button>';
                         } else if (data.status === 'qr') {
                             statusEl.innerHTML = 'Status: <mark>Scan Required 📱</mark>';
                             if (data.qr) {
@@ -270,7 +271,7 @@ export const renderer = jsxRenderer(({ children }) => {
                             qrContainer.innerHTML = '';
                             document.getElementById('btn-test-send').disabled = true;
                             actionsHtml = '<button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="waAction(\\'reconnect\\')">Connect</button>';
-                            actionsHtml += '<button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="rescan(this)">Rescan</button>';
+                             actionsHtml += '<button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="waAction(\\'rescan\\')">Rescan</button>';
                         } else {
                             statusEl.innerHTML = 'Status: <code>' + data.status + '...</code>';
                             qrContainer.innerHTML = '';
@@ -374,9 +375,9 @@ export const Dashboard = ({ waStatus, qr, targetJids, data, lastStatus, isAlarmA
         const hasRealName = /[a-zA-Z]/.test(name);
         return isSelected || hasRealName;
     });
-    
+
     const selectedNames = targetJids.map(jid => {
-        if(jid === selfId) return "Me (Self)";
+        if (jid === selfId) return "Me (Self)";
         return contacts[jid] || jid.split('@')[0];
     }).join(', ');
 
@@ -396,28 +397,28 @@ export const Dashboard = ({ waStatus, qr, targetJids, data, lastStatus, isAlarmA
                     <header><strong>WhatsApp Bridge</strong></header>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.85rem;">
                         <div id="wa-status-text">
-                            Status: 
+                            Status:
                             {waStatus === 'open' ? <ins>Connected ✅</ins> : waStatus === 'qr' ? <mark>Scan Required 📱</mark> : waStatus === 'disconnected' ? <del>Disconnected ❌</del> : <code>{waStatus}...</code>}
                         </div>
                         <div class="wa-actions" id="wa-actions-container">
                             {waStatus === 'open' ? (
                                 <>
                                     <button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="waAction('disconnect')">Disconnect</button>
-                                    <button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="rescan(this)">Rescan</button>
+                                    <button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="waAction('rescan')">Rescan</button>
                                 </>
                             ) : (waStatus === 'qr' || waStatus === 'disconnected') ? (
                                 <>
                                     <button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="waAction('reconnect')">{waStatus === 'qr' ? 'Reset' : 'Connect'}</button>
-                                    <button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="rescan(this)">Rescan</button>
+                                    <button class="outline secondary" style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;" onclick="waAction('rescan')">Rescan</button>
                                 </>
                             ) : null}
                         </div>
                     </div>
 
                     <div style="text-align: right; margin-bottom: 0.5rem;">
-                        <button 
+                        <button
                             id="btn-test-send"
-                            class="outline secondary" 
+                            class="outline secondary"
                             style="width: auto; padding: 0.1rem 0.4rem; font-size: 0.65rem; margin: 0;"
                             onclick="sendTestMessage(this)"
                             disabled={waStatus !== 'open'}
@@ -435,7 +436,7 @@ export const Dashboard = ({ waStatus, qr, targetJids, data, lastStatus, isAlarmA
                     </div>
 
                     <div class="dest-summary">
-                        <strong>Destinations (<span id="dest-count-badge">{targetJids.length}</span>):</strong><br/>
+                        <strong>Destinations (<span id="dest-count-badge">{targetJids.length}</span>):</strong><br />
                         <span id="dest-list-summary" style="font-size: 0.75rem;">{selectedNames || 'None'}</span>
                     </div>
 
@@ -444,11 +445,11 @@ export const Dashboard = ({ waStatus, qr, targetJids, data, lastStatus, isAlarmA
                         <form action="/set-target" method="post" style="margin-top: 0.5rem;">
                             <fieldset style="margin-bottom: 0.5rem;">
                                 <div style="display: flex; gap: 0.25rem;">
-                                    <input 
-                                        type="search" 
+                                    <input
+                                        type="search"
                                         name="search"
-                                        class="search-box" 
-                                        placeholder="Search contacts..." 
+                                        class="search-box"
+                                        placeholder="Search contacts..."
                                         aria-label="Search"
                                         style="flex: 1;"
                                         oninput="filterDestinations(this.value)"
@@ -469,8 +470,8 @@ export const Dashboard = ({ waStatus, qr, targetJids, data, lastStatus, isAlarmA
                                         {individuals.map(([id, name]) => <option value={id} selected={targetJids.includes(id)}>{name}</option>)}
                                     </optgroup>
                                 </select>
-                                <textarea 
-                                    id="jid_manual" name="jid_manual" rows={1} 
+                                <textarea
+                                    id="jid_manual" name="jid_manual" rows={1}
                                     style={{ fontSize: '0.7rem', padding: '0.3rem', marginTop: '0.5rem' }}
                                     placeholder="Manual JIDs..."
                                     oninput="updateLocalSummary()"
@@ -484,7 +485,7 @@ export const Dashboard = ({ waStatus, qr, targetJids, data, lastStatus, isAlarmA
                 {/* Live Station Data Card */}
                 <article>
                     <header><strong>Live Station Data</strong></header>
-                    
+
                     <div class="monitoring-info">
                         <span><span class="status-dot bg-siaga-1"></span> S1</span>
                         <span><span class="status-dot bg-siaga-2"></span> S2</span>
@@ -523,7 +524,8 @@ export const Dashboard = ({ waStatus, qr, targetJids, data, lastStatus, isAlarmA
                     </div>
                 </article>
             </div>
-            <script dangerouslySetInnerHTML={{ __html: `
+            <script dangerouslySetInnerHTML={{
+                __html: `
                 // Initialize server data from props
                 serverContacts = ${JSON.stringify(contacts)};
                 serverSelfId = ${JSON.stringify(selfId)};
