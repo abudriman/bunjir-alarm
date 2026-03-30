@@ -1,9 +1,9 @@
 import * as cheerio from 'cheerio';
 import { Hono } from 'hono';
 import { log } from './log';
-import makeWASocket, { 
-    DisconnectReason, 
-    useMultiFileAuthState, 
+import makeWASocket, {
+    DisconnectReason,
+    useMultiFileAuthState,
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore,
     jidNormalizedUser,
@@ -76,7 +76,7 @@ const mem: Record<string, any> = {
 async function initDb() {
     // Create table if not exists (raw sqlite since we don't have migrations ran yet)
     db.run(`CREATE TABLE IF NOT EXISTS contacts (jid TEXT PRIMARY KEY, name TEXT NOT NULL)`);
-    
+
     // Load existing contacts
     const allContacts = db.select().from(contactsTable).all();
     for (const c of allContacts) {
@@ -152,14 +152,14 @@ function saveConfig() {
 
 async function saveContact(jid: string, name: string) {
     if (!jid || !name) return;
-    
+
     // Protect "Me (Self)" label
     if (mem.selfId && jid === mem.selfId) {
         name = 'Me (Self)';
     }
 
     if (mem.contacts[jid] === name) return; // Skip if no change
-    
+
     mem.contacts[jid] = name;
     db.insert(contactsTable)
         .values({ jid, name })
@@ -192,13 +192,13 @@ async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
             await sock.sendMessage(remoteJid, { text: helpMsg });
             break;
         case '/status':
-             const summary = mem.data.map((p: any) => {
-                 const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3));
-                 const emoji = status === 1 ? '🔴' : status === 2 ? '🟠' : status === 3 ? '🟡' : '🟢';
-                 return `${emoji} *${p.nama_pintu_air}*: ${p.tinggi_air}cm (Siaga ${status})`;
-             }).join('\n');
-             await sock.sendMessage(remoteJid, { text: `🤖 *Current Status:*\n\n${summary || 'No data available'}` });
-             break;
+            const summary = mem.data.map((p: any) => {
+                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3));
+                const emoji = status === 1 ? '🔴' : status === 2 ? '🟠' : status === 3 ? '🟡' : '🟢';
+                return `${emoji} *${p.nama_pintu_air}*: ${Number(p.tinggi_air) / 10}cm (Siaga ${status})`;
+            }).join('\n');
+            await sock.sendMessage(remoteJid, { text: `🤖 *Current Status:*\n\n${summary || 'No data available'}` });
+            break;
         case '/list':
             const targets = config.targetJids.map(jid => `- ${mem.contacts[jid] || jid}`).join('\n');
             await sock.sendMessage(remoteJid, { text: `🤖 *Target JIDs:*\n\n${targets || 'No targets configured'}` });
@@ -208,15 +208,15 @@ async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
                 await sock.sendMessage(remoteJid, { text: '🤖 No target JIDs configured.' });
                 break;
             }
-            
+
             const currentSummary = mem.data.map((p: any) => {
                 const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3));
                 const emoji = status === 1 ? '🔴' : status === 2 ? '🟠' : status === 3 ? '🟡' : '🟢';
-                return `${emoji} *${p.nama_pintu_air}*: ${p.tinggi_air}cm (Siaga ${status})`;
+                return `${emoji} *${p.nama_pintu_air}*: ${Number(p.tinggi_air) / 10}cm (Siaga ${status})`;
             }).join('\n');
 
             const notifyMsg = `🔔 *Bunjir Alarm: Current Status Update*\n\n${currentSummary || 'No data available'}\n\n_Triggered manually via command._`;
-            
+
             let successCount = 0;
             for (const targetJid of config.targetJids) {
                 try {
@@ -248,8 +248,8 @@ async function connectToWhatsApp() {
 
         if (sock) {
             log('Cleaning up existing socket...');
-            try { sock.ev.removeAllListeners('connection.update'); } catch(e) {}
-            try { sock.end(undefined); } catch(e) {}
+            try { sock.ev.removeAllListeners('connection.update'); } catch (e) { }
+            try { sock.end(undefined); } catch (e) { }
             sock = null;
         }
 
@@ -265,7 +265,7 @@ async function connectToWhatsApp() {
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
-            
+
             if (qr) {
                 mem.qr = await qrcode.toDataURL(qr);
                 mem.waStatus = 'qr';
@@ -375,7 +375,7 @@ async function connectToWhatsApp() {
 
                 // Command listener: Only respond if the message is in the "Me (Self)" chat
                 const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
-                
+
                 if (text && text.startsWith('/')) {
                     const remoteJid = msg.key.remoteJid;
                     if (!remoteJid) continue;
@@ -386,7 +386,7 @@ async function connectToWhatsApp() {
 
                     log(`Incoming command: "${text}" from ${remoteJid} (Normalized: ${normalizedRemote})`);
                     log(`Self Identifiers - Normalized JID: ${normalizedSelfId}, Normalized LID: ${normalizedSelfLid}`);
-                    
+
                     if (sock && (normalizedSelfId || normalizedSelfLid)) {
                         const isSelfChat = normalizedRemote === normalizedSelfId || normalizedRemote === normalizedSelfLid;
                         if (isSelfChat) {
@@ -441,7 +441,7 @@ async function fetchData(): Promise<PintuAirData[]> {
                 res.push(obj as PintuAirData);
             }
         });
-        
+
         return res;
     } catch (error) {
         log('Fetch error: ' + error);
@@ -453,7 +453,7 @@ async function checkStatusChanges(data: PintuAirData[]) {
     const filtered = data.filter(p => INDICATOR_CODE_STATION.includes(p.kode_stasiun));
     mem.data = filtered;
 
-    const summary = filtered.map(p => `${p.nama_pintu_air}: ${p.tinggi_air}cm (S${getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3))})`).join(' | ');
+    const summary = filtered.map(p => `${p.nama_pintu_air}: ${Number(p.tinggi_air) / 10}cm (S${getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3))})`).join(' | ');
     log(`Check: ${summary}`);
 
     for (const pintu of filtered) {
@@ -461,14 +461,14 @@ async function checkStatusChanges(data: PintuAirData[]) {
         const s1 = Number(pintu.siaga1);
         const s2 = Number(pintu.siaga2);
         const s3 = Number(pintu.siaga3);
-        
+
         const status = getStatusNumber(currentTma, s1, s2, s3);
         const prevStatus = mem.lastStatus[pintu.kode_stasiun];
 
         if (prevStatus !== undefined && prevStatus !== status) {
-            const msg = `🚨 *Status Change Alert*\n\nStation: *${pintu.nama_pintu_air}*\nPrevious: Siaga ${prevStatus}\nCurrent: *Siaga ${status}*\nTMA: ${currentTma} cm\n\nThresholds:\nS1: ${s1}, S2: ${s2}, S3: ${s3}`;
+            const msg = `🚨 *Status Change Alert*\n\nStation: *${pintu.nama_pintu_air}*\nPrevious: Siaga ${prevStatus}\nCurrent: *Siaga ${status}*\nTMA: ${Number(currentTma) / 10} cm\n\nThresholds:\nS1: ${s1}, S2: ${s2}, S3: ${s3}`;
             log(msg);
-            
+
             if (sock && mem.waStatus === 'open' && config.targetJids.length > 0) {
                 for (const jid of config.targetJids) {
                     try {
@@ -510,7 +510,7 @@ app.get('/pico.min.css', serveStatic({ path: './pico.min.css' }));
 app.get('/sse', (c) => {
     return streamSSE(c, async (stream) => {
         mem.sseControllers.add(stream);
-        
+
         await stream.writeSSE({
             data: JSON.stringify({ status: mem.waStatus, qr: mem.qr }),
             event: 'wa-update'
@@ -565,26 +565,26 @@ app.get('/', (c) => {
 app.post('/set-target', async (c) => {
     const fd = await c.req.formData();
     let jids: string[] = [];
-    
+
     // Handle manual input
     const manualStr = fd.get('jid_manual') as string;
     if (manualStr) {
         const manual = manualStr.split(',').map(j => j.trim()).filter(j => j.length > 0);
         jids.push(...manual);
     }
-    
+
     // Handle select input (multi-select)
     const selected = fd.getAll('jid_select') as string[];
     if (selected && selected.length > 0) {
         jids.push(...selected);
     }
-    
+
     config.targetJids = [...new Set(jids)];
     saveConfig();
-    
+
     // Re-broadcast so all clients update their UI
     broadcastContactsUpdate();
-    
+
     return c.redirect('/');
 });
 
@@ -605,9 +605,9 @@ app.post('/test-send', async (c) => {
             log(`Failed to send test message to ${jid}: ${e}`);
         }
     }
-    return c.json({ 
-        success: true, 
-        message: `Test message sent to ${successCount}/${config.targetJids.length} targets.` 
+    return c.json({
+        success: true,
+        message: `Test message sent to ${successCount}/${config.targetJids.length} targets.`
     });
 });
 
@@ -623,10 +623,10 @@ app.post('/rescan', async (c) => {
     if (sock) {
         try {
             await sock.logout();
-        } catch (e) {}
+        } catch (e) { }
         sock = null;
     }
-    
+
     // Completely wipe auth directory to force a new QR
     if (fs.existsSync(AUTH_DIR)) {
         try {
@@ -640,10 +640,10 @@ app.post('/rescan', async (c) => {
     mem.waStatus = 'connecting';
     mem.qr = null;
     broadcastWAUpdate();
-    
+
     // Re-init connection
     connectToWhatsApp();
-    
+
     return c.json({ success: true });
 });
 
@@ -651,7 +651,7 @@ app.post('/disconnect', async (c) => {
     if (sock) {
         try {
             await sock.logout();
-        } catch (e) {}
+        } catch (e) { }
         sock = null;
     }
     mem.waStatus = 'disconnected';

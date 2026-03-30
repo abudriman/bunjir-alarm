@@ -296,7 +296,7 @@ export const renderer = jsxRenderer(({ children }) => {
                                 const timeStr = p.tanggal ? p.tanggal.split('T')[1]?.substring(0, 5) || '--:--' : '--:--';
                                 return '<tr>' +
                                     '<td><strong>' + p.nama_pintu_air + '</strong></td>' +
-                                    '<td><code>' + p.tinggi_air + ' cm</code></td>' +
+                                    '<td><code>' + (Number(p.tinggi_air) / 10) + ' cm</code></td>' +
                                     '<td class="text-siaga-' + status + '">S' + status + '</td>' +
                                     '<td><small>' + timeStr + '</small></td>' +
                                 '</tr>';
@@ -510,7 +510,7 @@ export const Dashboard = ({ waStatus, qr, targetJids, data, lastStatus, isAlarmA
                                     return (
                                         <tr>
                                             <td><strong>{p.nama_pintu_air}</strong></td>
-                                            <td><code>{p.tinggi_air} cm</code></td>
+                                            <td><code>{Number(p.tinggi_air) / 10} cm</code></td>
                                             <td class={`text-siaga-${status}`}>S{status}</td>
                                             <td><small>{timeStr}</small></td>
                                         </tr>
