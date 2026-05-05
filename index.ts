@@ -69,7 +69,8 @@ const mem: Record<string, any> = {
     sseControllers: new Set<any>(),
     selfId: null,
     selfLid: null,
-    isConnecting: false
+    isConnecting: false,
+    lastSiaga1NotifyTime: 0
 };
 
 // Initialize Database
@@ -193,8 +194,8 @@ async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
             break;
         case '/status':
             const summary = mem.data.map((p: any) => {
-                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3));
-                const emoji = status === 1 ? '🔴' : status === 2 ? '🟠' : status === 3 ? '🟡' : '🟢';
+                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 35, Number(p.siaga2) + 35, Number(p.siaga3) + 35);
+                const emoji = status === 1 ? '🔴' : status === 2 ? '🟡' : status === 3 ? '🔵' : '🟢';
                 return `${emoji} *${p.nama_pintu_air}*: ${Number(p.tinggi_air) / 10}cm (Siaga ${status})`;
             }).join('\n');
             await sock.sendMessage(remoteJid, { text: `🤖 *Current Status:*\n\n${summary || 'No data available'}` });
@@ -210,8 +211,8 @@ async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
             }
 
             const currentSummary = mem.data.map((p: any) => {
-                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1), Number(p.siaga2), Number(p.siaga3));
-                const emoji = status === 1 ? '🔴' : status === 2 ? '🟠' : status === 3 ? '🟡' : '🟢';
+                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 35, Number(p.siaga2) + 35, Number(p.siaga3) + 35);
+                const emoji = status === 1 ? '🔴' : status === 2 ? '🟡' : status === 3 ? '🔵' : '🟢';
                 return `${emoji} *${p.nama_pintu_air}*: ${Number(p.tinggi_air) / 10}cm (Siaga ${status})`;
             }).join('\n');
 
@@ -458,9 +459,9 @@ async function checkStatusChanges(data: PintuAirData[]) {
 
     for (const pintu of filtered) {
         const currentTma = Number(pintu.tinggi_air);
-        const s1 = Number(pintu.siaga1);
-        const s2 = Number(pintu.siaga2);
-        const s3 = Number(pintu.siaga3);
+        const s1 = Number(pintu.siaga1) + 35;
+        const s2 = Number(pintu.siaga2) + 35;
+        const s3 = Number(pintu.siaga3) + 35;
 
         const status = getStatusNumber(currentTma, s1, s2, s3);
         const prevStatus = mem.lastStatus[pintu.kode_stasiun];
@@ -487,7 +488,7 @@ async function checkStatusChanges(data: PintuAirData[]) {
 function decideAlarm(data: PintuAirData[]): boolean {
     const filtered = data.filter(p => INDICATOR_CODE_STATION.includes(p.kode_stasiun));
     for (const pintu of filtered) {
-        if (Number(pintu.tinggi_air) > Number(pintu.siaga2)) {
+        if (Number(pintu.tinggi_air) > Number(pintu.siaga2) + 35) {
             return true;
         }
     }
@@ -681,6 +682,27 @@ app.get('/stop', (c) => {
     return c.text('ok');
 });
 
+// --- Helper Functions ---
+async function sendPeriodicSiaga1Notification() {
+    if (!sock || mem.waStatus !== 'open' || config.targetJids.length === 0) return;
+
+    const currentSummary = mem.data.map((p: any) => {
+        const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 35, Number(p.siaga2) + 35, Number(p.siaga3) + 35);
+        const emoji = status === 1 ? '🔴' : status === 2 ? '🟡' : status === 3 ? '🔵' : '🟢';
+        return `${emoji} *${p.nama_pintu_air}*: ${Number(p.tinggi_air) / 10}cm (Siaga ${status})`;
+    }).join('\n');
+
+    const notifyMsg = `🚨 *Bunjir Alarm: Periodic Siaga 1 Update*\n\n${currentSummary || 'No data available'}\n\n_Automated update (Every 30m during Siaga 1)._`;
+
+    for (const targetJid of config.targetJids) {
+        try {
+            await sock.sendMessage(targetJid, { text: notifyMsg });
+        } catch (e) {
+            log(`Failed to send periodic notify message to ${targetJid}: ${e}`);
+        }
+    }
+}
+
 // --- Main Loop ---
 async function main() {
     log('checking data...');
@@ -689,6 +711,22 @@ async function main() {
         await checkStatusChanges(data);
         if (decideAlarm(data)) {
             startAlarm();
+        }
+
+        const hasSiaga1 = mem.data.some((p: any) => {
+            const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 35, Number(p.siaga2) + 35, Number(p.siaga3) + 35);
+            return status === 1;
+        });
+
+        if (hasSiaga1) {
+            const now = Date.now();
+            // 30 minutes = 30 * 60 * 1000 = 1800000 ms
+            if (now - mem.lastSiaga1NotifyTime >= 1800000) {
+                mem.lastSiaga1NotifyTime = now;
+                await sendPeriodicSiaga1Notification();
+            }
+        } else {
+            mem.lastSiaga1NotifyTime = 0;
         }
     }
     setTimeout(main, CHECK_INTERVAL);
