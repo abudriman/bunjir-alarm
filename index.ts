@@ -194,7 +194,7 @@ async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
             break;
         case '/status':
             const summary = mem.data.map((p: any) => {
-                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 35, Number(p.siaga2) + 35, Number(p.siaga3) + 35);
+                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 350, Number(p.siaga2) + 350, Number(p.siaga3) + 350);
                 const emoji = status === 1 ? '🔴' : status === 2 ? '🟡' : status === 3 ? '🔵' : '🟢';
                 return `${emoji} *${p.nama_pintu_air}*: ${Number(p.tinggi_air) / 10}cm (Siaga ${status})`;
             }).join('\n');
@@ -211,7 +211,7 @@ async function handleCommand(sock: WASocket, remoteJid: string, text: string) {
             }
 
             const currentSummary = mem.data.map((p: any) => {
-                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 35, Number(p.siaga2) + 35, Number(p.siaga3) + 35);
+                const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 350, Number(p.siaga2) + 350, Number(p.siaga3) + 350);
                 const emoji = status === 1 ? '🔴' : status === 2 ? '🟡' : status === 3 ? '🔵' : '🟢';
                 return `${emoji} *${p.nama_pintu_air}*: ${Number(p.tinggi_air) / 10}cm (Siaga ${status})`;
             }).join('\n');
@@ -459,9 +459,9 @@ async function checkStatusChanges(data: PintuAirData[]) {
 
     for (const pintu of filtered) {
         const currentTma = Number(pintu.tinggi_air);
-        const s1 = Number(pintu.siaga1) + 35;
-        const s2 = Number(pintu.siaga2) + 35;
-        const s3 = Number(pintu.siaga3) + 35;
+        const s1 = Number(pintu.siaga1) + 350;
+        const s2 = Number(pintu.siaga2) + 350;
+        const s3 = Number(pintu.siaga3) + 350;
 
         const status = getStatusNumber(currentTma, s1, s2, s3);
         const prevStatus = mem.lastStatus[pintu.kode_stasiun];
@@ -488,7 +488,7 @@ async function checkStatusChanges(data: PintuAirData[]) {
 function decideAlarm(data: PintuAirData[]): boolean {
     const filtered = data.filter(p => INDICATOR_CODE_STATION.includes(p.kode_stasiun));
     for (const pintu of filtered) {
-        if (Number(pintu.tinggi_air) > Number(pintu.siaga2) + 35) {
+        if (Number(pintu.tinggi_air) > Number(pintu.siaga2) + 350) {
             return true;
         }
     }
@@ -687,7 +687,7 @@ async function sendPeriodicSiaga1Notification() {
     if (!sock || mem.waStatus !== 'open' || config.targetJids.length === 0) return;
 
     const currentSummary = mem.data.map((p: any) => {
-        const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 35, Number(p.siaga2) + 35, Number(p.siaga3) + 35);
+        const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 350, Number(p.siaga2) + 350, Number(p.siaga3) + 350);
         const emoji = status === 1 ? '🔴' : status === 2 ? '🟡' : status === 3 ? '🔵' : '🟢';
         return `${emoji} *${p.nama_pintu_air}*: ${Number(p.tinggi_air) / 10}cm (Siaga ${status})`;
     }).join('\n');
@@ -714,7 +714,7 @@ async function main() {
         }
 
         const hasSiaga1 = mem.data.some((p: any) => {
-            const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 35, Number(p.siaga2) + 35, Number(p.siaga3) + 35);
+            const status = getStatusNumber(Number(p.tinggi_air), Number(p.siaga1) + 350, Number(p.siaga2) + 350, Number(p.siaga3) + 350);
             return status === 1;
         });
 
